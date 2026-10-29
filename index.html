@@ -915,9 +915,10 @@ function viewPorto(m){
 function nGrid(items,hiLabel){ return el("div",{class:"ngrid"},items.map(([l,v])=>el("div",{class:"nbox"+(l===hiLabel?" hi":"")},el("div",{class:"l",text:l}),el("div",{class:"v",text:nv(v)})))); }
 const F_MAT=[["diag","Diagnostik"],["fmt1","Formatif 1"],["fmt2","Formatif 2"],["fmt3","Formatif 3"],["rataFmt","Rata-rata formatif"],["smt1","Sumatif 1"],["bintang","Bintang"]];
 const F_LAN=[["diag","Diagnostik"],["findiv1","Formatif individu 1"],["findiv2","Formatif individu 2"],["findiv3","Formatif individu 3"],["findiv4","Formatif individu 4"],["fkel1","Formatif kelompok 1"],["fkel2","Formatif kelompok 2"],["fkel3","Formatif kelompok 3"],["rataFmt","Rata-rata formatif"],["smt1","Sumatif 1"],["bintang","Bintang"]];
+const kolomPortal=x=>(x.kolom||[]).map(k=>[k.l,k.v]).concat(x.rataFmt&&x.rataFmt!=="-"?[["Rata-rata formatif",x.rataFmt]]:[]);
 function renderPortal(m,n){
-  if(n.matematika) m.append(el("section",{class:"card sec"},el("h2",{style:"margin-bottom:12px",text:"Matematika"}),nGrid(F_MAT.map(([k,l])=>[l,n.matematika[k]]),"Rata-rata formatif")));
-  if(n.matLanjut) m.append(el("section",{class:"card sec"},el("h2",{style:"margin-bottom:12px",text:"Matematika Tingkat Lanjut"}),nGrid(F_LAN.map(([k,l])=>[l,n.matLanjut[k]]),"Rata-rata formatif")));
+  if(n.matematika) m.append(el("section",{class:"card sec"},el("h2",{style:"margin-bottom:12px",text:"Matematika"}),nGrid(kolomPortal(n.matematika),"Rata-rata formatif")));
+  if(n.matLanjut) m.append(el("section",{class:"card sec"},el("h2",{style:"margin-bottom:12px",text:"Matematika Tingkat Lanjut"}),nGrid(kolomPortal(n.matLanjut),"Rata-rata formatif")));
   if(!n.matematika&&!n.matLanjut) m.append(el("p",{class:"notice",text:"Belum ada data di rekap nilai."}));
 }
 function renderPrePost(m,n){
@@ -1050,20 +1051,20 @@ function viewDasbor(m){
       data:{labels:bins.map(b=>b[0]),datasets:sB.map((b,i)=>({label:`Bab ${singkat(b)}`,data:bins.map(([,lo,hi])=>nilaiTes("SUMATIF",b).filter(x=>num(x)!=null&&num(x)>=lo&&num(x)<hi).length),backgroundColor:pal(c)[i%6],borderRadius:6}))},
       options:{scales:{y:{ticks:{precision:0}}}}}));
   }
+  const rekapGrafik=(list,judul)=>{
+    const lab=[]; list.forEach(p=>(p.kolom||[]).forEach(k=>{ if(!lab.includes(k.l)&&!/rata|bintang/i.test(k.l)) lab.push(k.l); }));
+    const nilai=lab.map(l=>r1(avg(list.map(p=>{const k=(p.kolom||[]).find(x=>x.l===l);return k?k.v:null;}))));
+    const pakai=lab.map((l,i)=>[l,nilai[i]]).filter(x=>x[1]!=null);
+    if(!pakai.length) return false;
+    grafik(charts,judul,"Rata-rata kelas dari spreadsheet rekap nilai",c=>({type:"bar",
+      data:{labels:pakai.map(x=>x[0].replace(/^Formatif /i,"F. ")),datasets:[{label:"Rata-rata",data:pakai.map(x=>x[1]),backgroundColor:pakai.map(x=>/sumatif/i.test(x[0])?c.deep:c.acc),borderRadius:6}]},
+      options:{plugins:{legend:{display:false}},scales:{y:{min:0,max:100}}}}));
+    return true;
+  };
   const pm=ss.map(s=>s.portal&&s.portal.matematika).filter(Boolean);
-  if(pm.length){ ada=true;
-    const f=F_MAT.filter(([k])=>k!=="bintang"&&k!=="rataFmt");
-    grafik(charts,"Rekap nilai Matematika","Rata-rata kelas dari spreadsheet rekap nilai",c=>({type:"bar",
-      data:{labels:f.map(x=>x[1]),datasets:[{label:"Rata-rata",data:f.map(([k])=>r1(avg(pm.map(p=>p[k])))),backgroundColor:f.map((x,i)=>i===f.length-1?c.deep:c.acc),borderRadius:6}]},
-      options:{plugins:{legend:{display:false}},scales:{y:{min:0,max:100}}}}));
-  }
+  if(pm.length&&rekapGrafik(pm,"Rekap nilai Matematika")) ada=true;
   const pl=ss.map(s=>s.portal&&s.portal.matLanjut).filter(Boolean);
-  if(pl.length){ ada=true;
-    const f=F_LAN.filter(([k])=>k!=="bintang"&&k!=="rataFmt");
-    grafik(charts,"Rekap nilai Matematika Tingkat Lanjut","Rata-rata kelas dari spreadsheet rekap nilai",c=>({type:"bar",
-      data:{labels:f.map(x=>x[1].replace("Formatif ","F. ")),datasets:[{label:"Rata-rata",data:f.map(([k])=>r1(avg(pl.map(p=>p[k])))),backgroundColor:c.acc,borderRadius:6}]},
-      options:{plugins:{legend:{display:false}},scales:{y:{min:0,max:100}}}}));
-  }
+  if(pl.length&&rekapGrafik(pl,"Rekap nilai Matematika Tingkat Lanjut")) ada=true;
   const urut=ss.map(s=>({s,v:num(s.portal&&s.portal.matematika?s.portal.matematika.rataFmt:null)!=null?num(s.portal.matematika.rataFmt):avg(Object.values(s.latihan))})).filter(x=>x.v!=null).sort((a,b)=>b.v-a.v);
   if(urut.length){ ada=true;
     const sumber=pm.length?"rata-rata formatif dari rekap nilai":"rata-rata nilai latihan";
