@@ -339,6 +339,12 @@ html.present body{zoom:1.12}
 .hm thead th:first-child{background:var(--bg)}
 .hm-c{font-weight:800;min-width:46px;border-left:2px solid var(--surface)}
 .hm-dot{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:6px;vertical-align:-1px}
+
+/* ===== nilai terkunci ===== */
+.kunci{text-align:left}
+.kunci-ikon{font-size:2.2rem;line-height:1;margin-bottom:8px}
+.kunci-prog{background:var(--bg);max-width:none;margin-top:10px;height:10px}
+.kunci-prog i{background:var(--acc)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -850,7 +856,7 @@ function viewRefleksi(box,p,B){
     const jawaban=p.pertanyaan.map((q,i)=>({q,a:fd.get("a"+i)}));
     const btn=f.querySelector("button[type=submit]"); btn.disabled=true; btn.textContent="Mengirim…";
     try{ await api("refleksi",{pertemuan:p.no,bab:B.key,paham:Number(fd.get("paham")),jawaban});
-      hapusDraf(); p.refleksi=true; delete S.ulangRefl[rk]; simpanData(); toast("Refleksi terkirim. Terima kasih!"); render(); }
+      hapusDraf(); p.refleksi=true; delete S.ulangRefl[rk]; S.nilai=null; simpanData(); toast("Refleksi terkirim. Terima kasih!"); render(); }
     catch(err){ toast(err.message); btn.disabled=false; btn.textContent="Kirim refleksi"; }
   }},
     el("p",{class:"muted",style:"margin:0",text:"Jawab dengan jujur. Refleksimu hanya dibaca oleh guru."}),
@@ -1074,10 +1080,26 @@ function muatNilai(m){
       .then(()=>{const a=route().a;if(a==="nilai"||a==="ceknilai")render();}); }
   return false;
 }
+function viewTerkunci(m){
+  const n=S.nilai, pct=n.total?Math.round(n.selesai/n.total*100):0;
+  const grup={}; n.kurang.forEach(k=>{const key=`Bab ${k.bab}${k.mapel?" · "+k.mapel:""}`;(grup[key]=grup[key]||[]).push(k);});
+  m.append(el("section",{class:"card kunci"},
+    el("div",{class:"kunci-ikon","aria-hidden":"true",text:"🔒"}),
+    el("h2",{text:"Lengkapi refleksimu dulu, ya"}),
+    el("p",{class:"muted",style:"margin:4px 0 14px;max-width:56ch",text:"Nilai bisa dilihat setelah kamu mengisi refleksi di semua pertemuan. Refleksi membantumu dan guru mengetahui bagian mana yang sudah dan belum kamu pahami."}),
+    el("div",{class:"row",style:"gap:10px"},el("strong",{text:`${n.selesai} dari ${n.total} refleksi selesai`}),el("span",{class:"muted small",text:`${n.kurang.length} lagi`})),
+    el("div",{class:"prog kunci-prog"},el("i",{style:`width:${pct}%`}))));
+  m.append(el("h2",{style:"margin:22px 0 10px",text:"Refleksi yang belum diisi"}));
+  Object.keys(grup).forEach(gk=>m.append(el("section",{class:"bab"},el("div",{class:"babhead"},el("h2",{style:"font-size:1rem",text:gk})),
+    el("ol",{class:"plist"},grup[gk].map(k=>el("li",{class:"prow"},el("span",{class:"pnum",text:String(k.no)}),
+      el("div",{class:"pmain"},el("div",{class:"ptitle",text:k.judul}),el("div",{class:"ptuj",text:`Pertemuan ${k.no}`})),
+      el("div",{class:"acts"},el("a",{class:"act todo",href:`#pertemuan-${k.babId}-${k.no}-refleksi`},"Isi refleksi"))))))));
+}
 function viewCekNilai(m){
   m.append(el("div",{class:"row no-print",style:"margin-bottom:4px"},el("h1",{style:"margin:0",text:"Cek Nilai"}),el("span",{class:"spacer"}),
     S.nilai&&!S.nilai.gagal&&el("button",{class:"btn quiet small",onclick:()=>{S.nilai=null;render();}},"Muat ulang")));
   if(!muatNilai(m)) return;
+  if(S.nilai.terkunci){ viewTerkunci(m); return; }
   const n=S.nilai, mp=[["Matematika",n.matematika],["Matematika Tingkat Lanjut",n.matLanjut]].filter(x=>x[1]);
   m.append(el("div",{class:"cn-who"},el("span",{class:"bigava","aria-hidden":"true",text:inisial(n.siswa.nama)}),
     el("div",null,el("h2",{style:"margin:0",text:n.siswa.nama}),el("p",{class:"muted",style:"margin:0",text:`Kelas ${n.siswa.kelas}`}))));
@@ -1107,6 +1129,7 @@ function viewNilai(m){
   m.append(el("h1",{text:"Hasil Belajar"}),el("p",{class:"muted",style:"margin:0 0 6px",text:"Hasil latihan dan tes yang kamu kerjakan di Ruang Belajar."}),
     el("p",{class:"small",style:"margin:0 0 14px"},"Nilai rekap (diagnostik, formatif, sumatif) ada di menu ",el("a",{href:"#ceknilai"},"Cek Nilai"),"."));
   if(!muatNilai(m)) return;
+  if(S.nilai.terkunci){ viewTerkunci(m); return; }
   const n=S.nilai;
   m.append(el("div",{class:"row"},el("span",{class:"muted",text:n.siswa.nama}),el("span",{class:"spacer"}),el("button",{class:"btn quiet small",onclick:()=>{S.nilai=null;render();}},"Muat ulang")));
   renderPrePost(m,n); renderHasil(m,n);
