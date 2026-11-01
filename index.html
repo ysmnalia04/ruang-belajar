@@ -1080,8 +1080,21 @@ function muatNilai(m){
       .then(()=>{const a=route().a;if(a==="nilai"||a==="ceknilai")render();}); }
   return false;
 }
-function viewTerkunci(m){
-  const n=S.nilai, pct=n.total?Math.round(n.selesai/n.total*100):0;
+/** Cek kelengkapan refleksi dari data kelas yang sudah dimuat (lapis pertama penguncian). */
+function statusRefleksiLokal(){
+  const kurang=[]; let total=0;
+  (S.data&&S.data.bab||[]).forEach(B=>B.pertemuan.forEach(p=>{ total++; if(!p.refleksi) kurang.push({babId:B.id,bab:B.bab,mapel:B.mapel,no:p.no,judul:p.judul}); }));
+  return {total,selesai:total-kurang.length,kurang};
+}
+function cekKunci(m){
+  if(S.guru) return false;
+  const st=statusRefleksiLokal();
+  if(st.kurang.length){ viewTerkunci(m,st); return true; }
+  if(S.nilai&&S.nilai.terkunci){ viewTerkunci(m,S.nilai); return true; }
+  return false;
+}
+function viewTerkunci(m,n){
+  n=n||S.nilai; const pct=n.total?Math.round(n.selesai/n.total*100):0;
   const grup={}; n.kurang.forEach(k=>{const key=`Bab ${k.bab}${k.mapel?" · "+k.mapel:""}`;(grup[key]=grup[key]||[]).push(k);});
   m.append(el("section",{class:"card kunci"},
     el("div",{class:"kunci-ikon","aria-hidden":"true",text:"🔒"}),
@@ -1098,8 +1111,9 @@ function viewTerkunci(m){
 function viewCekNilai(m){
   m.append(el("div",{class:"row no-print",style:"margin-bottom:4px"},el("h1",{style:"margin:0",text:"Cek Nilai"}),el("span",{class:"spacer"}),
     S.nilai&&!S.nilai.gagal&&el("button",{class:"btn quiet small",onclick:()=>{S.nilai=null;render();}},"Muat ulang")));
+  if(cekKunci(m)) return;
   if(!muatNilai(m)) return;
-  if(S.nilai.terkunci){ viewTerkunci(m); return; }
+  if(cekKunci(m)) return;
   const n=S.nilai, mp=[["Matematika",n.matematika],["Matematika Tingkat Lanjut",n.matLanjut]].filter(x=>x[1]);
   m.append(el("div",{class:"cn-who"},el("span",{class:"bigava","aria-hidden":"true",text:inisial(n.siswa.nama)}),
     el("div",null,el("h2",{style:"margin:0",text:n.siswa.nama}),el("p",{class:"muted",style:"margin:0",text:`Kelas ${n.siswa.kelas}`}))));
@@ -1128,8 +1142,9 @@ function viewCekNilai(m){
 function viewNilai(m){
   m.append(el("h1",{text:"Hasil Belajar"}),el("p",{class:"muted",style:"margin:0 0 6px",text:"Hasil latihan dan tes yang kamu kerjakan di Ruang Belajar."}),
     el("p",{class:"small",style:"margin:0 0 14px"},"Nilai rekap (diagnostik, formatif, sumatif) ada di menu ",el("a",{href:"#ceknilai"},"Cek Nilai"),"."));
+  if(cekKunci(m)) return;
   if(!muatNilai(m)) return;
-  if(S.nilai.terkunci){ viewTerkunci(m); return; }
+  if(cekKunci(m)) return;
   const n=S.nilai;
   m.append(el("div",{class:"row"},el("span",{class:"muted",text:n.siswa.nama}),el("span",{class:"spacer"}),el("button",{class:"btn quiet small",onclick:()=>{S.nilai=null;render();}},"Muat ulang")));
   renderPrePost(m,n); renderHasil(m,n);
