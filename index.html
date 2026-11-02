@@ -328,6 +328,12 @@ html.present body{zoom:1.12}
 .kp-track i{display:block;height:100%;background:var(--acc);border-radius:99px}
 .kp-bar b{text-align:right}
 
+/* ===== karya kelompok ===== */
+.kel-ang{padding:10px 16px 0;margin:0;font-size:.9rem;color:var(--muted)}
+.kel-ang a{font-weight:600}
+.cekgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px;max-height:320px;overflow:auto;padding:10px;border:1px solid var(--rule);border-radius:12px;background:var(--bg)}
+.cekgrid label{display:flex;gap:8px;align-items:center;font-weight:500;cursor:pointer}
+
 /* ===== video portofolio ===== */
 .vid{margin-top:8px}
 .vid-frame{position:relative;width:100%;max-width:560px;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#000}
@@ -1029,10 +1035,32 @@ function viewSejawat(m,bid){
 
 /* ---------- portofolio ---------- */
 function galeri(m,items,linkSiswa){
-  const grup={}; items.forEach(k=>{(grup[k.nama]=grup[k.nama]||[]).push(k)});
+  const kel=items.filter(k=>k.kelompok), ind=items.filter(k=>!k.kelompok);
+  const grup={}; ind.forEach(k=>{(grup[k.nama]=grup[k.nama]||[]).push(k)});
   const nama=Object.keys(grup).sort((a,b)=>a.localeCompare(b));
-  m.append(el("div",{class:"row",style:"margin:28px 0 12px"},el("h2",{text:S.guru?`Galeri portofolio ${S.data.siswa.kelas}`:"Galeri kelas"}),el("span",{class:"spacer"}),el("span",{class:"chip plain",text:`${nama.length} siswa · ${items.length} karya`})));
-  if(!nama.length){ m.append(el("div",{class:"empty",text:S.guru?"Belum ada karya yang dikirim siswa.":"Belum ada karya. Jadilah yang pertama!"})); return; }
+  const info=[nama.length?`${nama.length} siswa · ${ind.length} karya`:"",kel.length?`${kel.length} karya kelompok`:""].filter(Boolean).join(" · ")||"0 karya";
+  m.append(el("div",{class:"row",style:"margin:28px 0 12px"},el("h2",{text:S.guru?`Galeri portofolio ${S.data.siswa.kelas}`:"Galeri kelas"}),el("span",{class:"spacer"}),el("span",{class:"chip plain",text:info})));
+  if(!items.length){ m.append(el("div",{class:"empty",text:S.guru?"Belum ada karya yang dikirim siswa.":"Belum ada karya. Jadilah yang pertama!"})); return; }
+  if(kel.length){
+    m.append(el("h3",{text:"Karya kelompok",style:"margin:6px 0 10px"}));
+    kel.sort((a,b)=>String(b.waktu).localeCompare(String(a.waktu))).forEach(k=>{
+      const ang=k.anggota||[];
+      m.append(el("article",{class:"stud"},
+        el("div",{class:"sh"},el("span",{class:"ava","aria-hidden":"true",text:"👥"}),
+          el("strong",{text:k.namaKelompok||"Karya kelompok"}),
+          k.milikku&&el("span",{class:"chip ok",text:"Kelompokmu"}),el("span",{class:"spacer"}),
+          el("span",{class:"muted",style:"font-size:.85rem",text:`${ang.length} anggota`}),
+          S.guru&&el("button",{class:"btn quiet small",type:"button",onclick:async e=>{
+            if(!confirm(`Sembunyikan karya kelompok "${k.judul}" dari portofolio ${ang.length} anggota?`)) return;
+            const bt=e.currentTarget; bt.disabled=true;
+            try{ await api("hapusKelompok",{kelompok:k.kelompok}); toast("Karya kelompok disembunyikan."); await muatKelas(); render(); }
+            catch(err){ toast(err.message); bt.disabled=false; }
+          }},"Sembunyikan")),
+        el("p",{class:"kel-ang"},"Anggota: ",...ang.flatMap((a,i)=>[i?", ":"",linkSiswa&&a.sid?el("a",{href:`#siswa-${a.sid}`},a.nama):a.nama])),
+        el("ul",null,karyaItem(k))));
+    });
+    if(nama.length) m.append(el("h3",{text:"Karya individu",style:"margin:22px 0 10px"}));
+  }
   for(const n of nama){
     const ks=grup[n].sort((a,b)=>String(b.waktu).localeCompare(String(a.waktu)));
     m.append(el("article",{class:"stud"},el("div",{class:"sh"},el("span",{class:"ava","aria-hidden":"true",text:inisial(n)}),
@@ -1051,14 +1079,49 @@ function karyaItem(k){ const u=safeUrl(k.tautan), emb=videoEmbed(u);
   return el("li",null,
     el("div",{class:"row",style:"gap:8px"},el("strong",{text:k.judul}),el("span",{class:"chip plain",text:k.jenis})),
     el("p",{class:"muted",text:`${k.bab?"Bab "+k.bab+" · ":""}${tgl(k.waktu)}`}),
+    k.anggotaNama&&el("p",{class:"muted",text:`👥 Karya kelompok${k.namaKelompok?" ("+k.namaKelompok+")":""}: ${k.anggotaNama.join(", ")}`}),
     k.deskripsi&&el("p",{text:k.deskripsi}),
     emb&&el("div",{class:"vid"},el("button",{class:"btn quiet small",type:"button",onclick:e=>{const box=e.currentTarget.parentNode;
       box.replaceChildren(el("div",{class:"vid-frame"},el("iframe",{src:emb,title:"Video "+k.judul,allow:"autoplay; encrypted-media; picture-in-picture; fullscreen",allowfullscreen:true,loading:"lazy"})));}},"▶ Putar video")),
     u&&el("p",null,el("a",{href:u,target:"_blank",rel:"noopener noreferrer"},emb?"Buka di tab baru":"Buka karya"))); }
+function formKelompok(m,d){
+  const teman=(d.teman||[]).slice().sort((a,b)=>a.nama.localeCompare(b.nama));
+  const jml=el("span",{class:"chip plain",text:"0 dipilih"});
+  let f;
+  const hitung=()=>{ jml.textContent=f.querySelectorAll("input[name=anggota]:checked").length+" dipilih"; };
+  const cari=el("input",{type:"search",placeholder:"Cari nama siswa…",oninput:()=>{const q=cari.value.trim().toLowerCase();
+    f.querySelectorAll(".cekgrid label").forEach(l=>{l.style.display=l.textContent.toLowerCase().includes(q)?"":"none";});}});
+  f=el("form",{class:"stack",onsubmit:async e=>{
+    e.preventDefault(); if(!f.reportValidity()) return;
+    const fd=Object.fromEntries(new FormData(f)); delete fd.anggota;
+    fd.anggota=[...f.querySelectorAll("input[name=anggota]:checked")].map(x=>x.value);
+    if(!fd.anggota.length){ toast("Centang minimal satu anggota kelompok."); return; }
+    if(!safeUrl(fd.tautan)){ toast("Tautan harus diawali https://"); return; }
+    const btn=f.querySelector("button[type=submit]"); btn.disabled=true; btn.textContent="Menyimpan…";
+    try{ const j=await api("portofolioKelompok",fd); toast(`Karya kelompok ditambahkan ke portofolio ${j.jumlah} siswa.`); f.reset(); hitung(); await muatKelas(); render(); }
+    catch(err){ toast(err.message); }
+    btn.disabled=false; btn.textContent="Tambahkan ke portofolio kelompok";
+  }},
+    el("div",{class:"row",style:"align-items:stretch"},
+      el("label",{style:"flex:1;min-width:200px"},"Nama kelompok",el("input",{name:"namaKelompok",maxlength:"80",placeholder:"mis. Kelompok 1"})),
+      el("label",{style:"flex:2;min-width:240px"},"Judul karya",el("input",{name:"judul",required:true,maxlength:"150",placeholder:"mis. LKPD 4–5 Determinan dan Invers Matriks"}))),
+    el("div",{class:"row",style:"align-items:stretch"},
+      el("label",{style:"flex:1;min-width:200px"},"Bab",el("select",{name:"bab"},el("option",{value:""},"Di luar bab"),d.bab.map(B=>el("option",{value:B.key},babTeks(B))))),
+      el("label",{style:"flex:1;min-width:200px"},"Jenis karya",el("select",{name:"jenis"},JENIS.map(j=>el("option",{value:j},j))))),
+    el("label",null,"Keterangan",el("span",{class:"hint",text:"Boleh dikosongkan. Misalnya: hasil kerja kelompok pada LKPD pertemuan 4 dan 5."}),el("textarea",{name:"deskripsi"})),
+    el("label",null,"Tautan karya",el("span",{class:"hint",text:"Unggah file ke Google Drive, atur aksesnya menjadi siapa saja yang memiliki link dapat melihat, lalu tempel tautannya di sini."}),el("input",{name:"tautan",type:"url",required:true,placeholder:"https://"})),
+    el("div",null,el("div",{class:"row",style:"margin-bottom:6px"},el("strong",{text:"Anggota kelompok"}),el("span",{class:"spacer"}),jml),
+      cari,
+      el("div",{class:"cekgrid",style:"margin-top:8px",onchange:hitung},teman.map(t=>el("label",null,el("input",{type:"checkbox",name:"anggota",value:t.id}),t.nama)))),
+    el("div",null,el("button",{class:"btn",type:"submit"},"Tambahkan ke portofolio kelompok")));
+  m.append(el("details",{class:"card"},el("summary",{style:"cursor:pointer;font-weight:700;font-size:1.05rem"},"＋ Tambah karya kelompok"),
+    el("p",{class:"muted",style:"margin:8px 0 14px",text:"Isi sekali, centang anggotanya. Karya otomatis masuk ke portofolio setiap anggota dan tampil satu kali di galeri kelas."}),f));
+}
 function viewPorto(m){
   const d=S.data;
   if(S.guru){
-    m.append(el("h1",{text:"Portofolio siswa"}),el("p",{class:"muted",style:"margin:0",text:"Klik nama siswa untuk membuka halaman lengkapnya. Sembunyikan karya lewat kolom Tampilkan di sheet Portofolio."}));
+    m.append(el("h1",{text:"Portofolio siswa"}),el("p",{class:"muted",style:"margin:0 0 18px",text:"Klik nama siswa untuk membuka halaman lengkapnya. Sembunyikan karya individu lewat kolom Tampilkan di sheet Portofolio."}));
+    formKelompok(m,d);
     galeri(m,d.portofolio,true); return;
   }
   m.append(el("h1",{text:"Portofolio"}),el("p",{class:"muted",style:"margin:0 0 18px",text:"Kumpulan karya kamu dan teman sekelasmu. Tambahkan karya terbaikmu beserta tautannya."}));
