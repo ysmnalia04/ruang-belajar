@@ -328,6 +328,17 @@ html.present body{zoom:1.12}
 .kp-track i{display:block;height:100%;background:var(--acc);border-radius:99px}
 .kp-bar b{text-align:right}
 
+/* ===== folder portofolio ===== */
+.fold{border:1px solid var(--rule);border-radius:16px;background:var(--surface);margin-bottom:12px}
+.fold>summary{cursor:pointer;padding:14px 16px;font-weight:700;display:flex;gap:10px;align-items:center;list-style:none}
+.fold>summary::-webkit-details-marker{display:none}
+.fold>summary::after{content:"▾";color:var(--muted);transition:transform .15s}
+.fold:not([open])>summary::after{transform:rotate(-90deg)}
+.fold-t{min-width:0}
+.fold-body{padding:0 14px 6px}
+.fold.task{background:var(--bg);border-radius:14px}
+.fold.task>summary{font-weight:650;padding:12px 14px}
+
 /* ===== karya kelompok ===== */
 .kel-ang{padding:10px 16px 0;margin:0;font-size:.9rem;color:var(--muted)}
 .kel-ang a{font-weight:600}
@@ -1035,40 +1046,73 @@ function viewSejawat(m,bid){
 }
 
 /* ---------- portofolio ---------- */
+/* ---- folder portofolio: per bab, lalu per tugas ---- */
+const babUrut=k=>{const n=parseInt(k,10);return isNaN(n)?9999:n;};
+function babLabel(key){
+  if(!key) return "Di luar bab";
+  const B=(S.data&&S.data.bab||[]).find(x=>x.key===key);
+  return B?babTeks(B):`Bab ${key}`;
+}
+function kelompokkanBab(items){
+  const g={}; items.forEach(k=>{const b=String(k.bab||"").trim();(g[b]=g[b]||[]).push(k);});
+  return Object.keys(g).sort((a,b)=>babUrut(a)-babUrut(b)||a.localeCompare(b)).map(b=>[b,g[b]]);
+}
+function folder(cls,ikon,judul,info,isi,buka,tanda){
+  return el("details",{class:"fold "+cls,open:buka||null},
+    el("summary",null,el("span",{"aria-hidden":"true",text:ikon}),el("span",{class:"fold-t",text:judul}),
+      tanda&&el("span",{class:"chip ok",text:tanda}),el("span",{class:"spacer"}),el("span",{class:"chip plain",text:info})),
+    el("div",{class:"fold-body"},isi));
+}
+function kartuKelompok(k,linkSiswa){
+  const ang=k.anggota||[];
+  return el("article",{class:"stud"},
+    el("div",{class:"sh"},el("span",{class:"ava","aria-hidden":"true",text:"👥"}),
+      el("strong",{text:k.namaKelompok||"Karya kelompok"}),
+      k.milikku&&el("span",{class:"chip ok",text:"Kelompokmu"}),el("span",{class:"spacer"}),
+      el("span",{class:"muted",style:"font-size:.85rem",text:`${ang.length} anggota`}),
+      S.guru&&el("button",{class:"btn quiet small",type:"button",onclick:async e=>{
+        if(!confirm(`Sembunyikan karya kelompok "${k.judul}" dari portofolio ${ang.length} anggota?`)) return;
+        const bt=e.currentTarget; bt.disabled=true;
+        try{ await api("hapusKelompok",{kelompok:k.kelompok}); toast("Karya kelompok disembunyikan."); await muatKelas(); render(); }
+        catch(err){ toast(err.message); bt.disabled=false; }
+      }},"Sembunyikan")),
+    el("p",{class:"kel-ang"},"Anggota: ",...ang.flatMap((a,i)=>[i?", ":"",linkSiswa&&a.sid?el("a",{href:`#siswa-${a.sid}`},a.nama):a.nama])),
+    el("ul",null,karyaItem(k)));
+}
+function kartuSiswa(n,ks,linkSiswa){
+  ks=ks.slice().sort((a,b)=>String(b.waktu).localeCompare(String(a.waktu)));
+  return el("article",{class:"stud"},el("div",{class:"sh"},el("span",{class:"ava","aria-hidden":"true",text:inisial(n)}),
+      linkSiswa&&ks[0].sid?el("a",{href:`#siswa-${ks[0].sid}`,style:"font-weight:700;text-decoration:none"},n):el("strong",{text:n}),
+      ks[0].milikku&&el("span",{class:"chip ok",text:"Kamu"}),el("span",{class:"spacer"}),el("span",{class:"muted",style:"font-size:.85rem",text:`${ks.length} karya`})),
+    el("ul",null,ks.map(karyaItem)));
+}
 function galeri(m,items,linkSiswa){
-  const kel=items.filter(k=>k.kelompok), ind=items.filter(k=>!k.kelompok);
-  const grup={}; ind.forEach(k=>{(grup[k.nama]=grup[k.nama]||[]).push(k)});
-  const nama=Object.keys(grup).sort((a,b)=>a.localeCompare(b));
-  const info=[nama.length?`${nama.length} siswa · ${ind.length} karya`:"",kel.length?`${kel.length} karya kelompok`:""].filter(Boolean).join(" · ")||"0 karya";
+  const nKel=items.filter(k=>k.kelompok).length, nInd=items.length-nKel;
+  const info=[nKel?`${nKel} karya kelompok`:"",nInd?`${nInd} karya individu`:""].filter(Boolean).join(" · ")||"0 karya";
   m.append(el("div",{class:"row",style:"margin:28px 0 12px"},el("h2",{text:S.guru?`Galeri portofolio ${S.data.siswa.kelas}`:"Galeri kelas"}),el("span",{class:"spacer"}),el("span",{class:"chip plain",text:info})));
   if(!items.length){ m.append(el("div",{class:"empty",text:S.guru?"Belum ada karya yang dikirim siswa.":"Belum ada karya. Jadilah yang pertama!"})); return; }
-  if(kel.length){
-    m.append(el("h3",{text:"Karya kelompok",style:"margin:6px 0 10px"}));
-    kel.sort((a,b)=>String(b.waktu).localeCompare(String(a.waktu))).forEach(k=>{
-      const ang=k.anggota||[];
-      m.append(el("article",{class:"stud"},
-        el("div",{class:"sh"},el("span",{class:"ava","aria-hidden":"true",text:"👥"}),
-          el("strong",{text:k.namaKelompok||"Karya kelompok"}),
-          k.milikku&&el("span",{class:"chip ok",text:"Kelompokmu"}),el("span",{class:"spacer"}),
-          el("span",{class:"muted",style:"font-size:.85rem",text:`${ang.length} anggota`}),
-          S.guru&&el("button",{class:"btn quiet small",type:"button",onclick:async e=>{
-            if(!confirm(`Sembunyikan karya kelompok "${k.judul}" dari portofolio ${ang.length} anggota?`)) return;
-            const bt=e.currentTarget; bt.disabled=true;
-            try{ await api("hapusKelompok",{kelompok:k.kelompok}); toast("Karya kelompok disembunyikan."); await muatKelas(); render(); }
-            catch(err){ toast(err.message); bt.disabled=false; }
-          }},"Sembunyikan")),
-        el("p",{class:"kel-ang"},"Anggota: ",...ang.flatMap((a,i)=>[i?", ":"",linkSiswa&&a.sid?el("a",{href:`#siswa-${a.sid}`},a.nama):a.nama])),
-        el("ul",null,karyaItem(k))));
+  const babs=kelompokkanBab(items);
+  babs.forEach(([bab,isi],bi)=>{
+    const kel=isi.filter(k=>k.kelompok), ind=isi.filter(k=>!k.kelompok);
+    const tugas={}; kel.forEach(k=>{(tugas[k.judul]=tugas[k.judul]||[]).push(k);});
+    const folders=Object.keys(tugas).sort((a,b)=>a.localeCompare(b,"id",{numeric:true})).map(j=>{
+      const ks=tugas[j].sort((a,b)=>String(a.namaKelompok).localeCompare(String(b.namaKelompok),"id",{numeric:true}));
+      return folder("task","📁",j,`${ks.length} kelompok`,ks.map(k=>kartuKelompok(k,linkSiswa)),false,ks.some(k=>k.milikku)?"Kelompokmu":null);
     });
-    if(nama.length) m.append(el("h3",{text:"Karya individu",style:"margin:22px 0 10px"}));
-  }
-  for(const n of nama){
-    const ks=grup[n].sort((a,b)=>String(b.waktu).localeCompare(String(a.waktu)));
-    m.append(el("article",{class:"stud"},el("div",{class:"sh"},el("span",{class:"ava","aria-hidden":"true",text:inisial(n)}),
-        linkSiswa&&ks[0].sid?el("a",{href:`#siswa-${ks[0].sid}`,style:"font-weight:700;text-decoration:none"},n):el("strong",{text:n}),
-        ks[0].milikku&&el("span",{class:"chip ok",text:"Kamu"}),el("span",{class:"spacer"}),el("span",{class:"muted",style:"font-size:.85rem",text:`${ks.length} karya`})),
-      el("ul",null,ks.map(karyaItem))));
-  }
+    if(ind.length){
+      const g={}; ind.forEach(k=>{(g[k.nama]=g[k.nama]||[]).push(k);});
+      const nama=Object.keys(g).sort((a,b)=>a.localeCompare(b));
+      folders.push(folder("task","🧑‍🎓","Karya individu",`${ind.length} karya`,nama.map(n=>kartuSiswa(n,g[n],linkSiswa)),false,ind.some(k=>k.milikku)?"Ada karyamu":null));
+    }
+    m.append(folder("bab","📚",babLabel(bab),`${Object.keys(tugas).length+(ind.length?1:0)} folder · ${isi.length} karya`,folders,bi===0||babs.length===1));
+  });
+}
+function portoSiswa(pf){
+  if(!pf.length) return el("div",{class:"empty",text:"Belum ada karya."});
+  return kelompokkanBab(pf).map(([bab,isi],bi)=>{
+    const ks=isi.slice().sort((a,b)=>String(a.judul).localeCompare(String(b.judul),"id",{numeric:true}));
+    return folder("bab","📚",babLabel(bab),`${ks.length} karya`,el("article",{class:"stud"},el("ul",null,ks.map(karyaItem))),true);
+  });
 }
 function videoEmbed(u){
   if(!u) return null; let m;
@@ -1553,7 +1597,7 @@ function viewSiswaDetail(m,id){
   renderHasil(m,n);
   const pf=n.portofolio||[];
   m.append(el("section",{class:"sec"},el("h2",{text:`Portofolio (${pf.length})`}),
-    pf.length?el("article",{class:"stud"},el("ul",null,pf.sort((a,b)=>String(b.waktu).localeCompare(String(a.waktu))).map(karyaItem))):el("div",{class:"empty",text:"Belum ada karya."})));
+    portoSiswa(pf)));
   const sj=n.sejawat;
   if(sj&&sj.jumlah) m.append(el("details",{class:"priv"},el("summary",null,`Penilaian dari teman: rata-rata ${nv(r1(sj.rata))} dari 4 (${sj.jumlah} penilai)`),
     el("div",{class:"ngrid",style:"margin-top:12px"},sj.aspek.map(a=>el("div",{class:"nbox"},el("div",{class:"l",text:a.aspek}),el("div",{class:"v",text:nv(r1(a.rata))})))),
