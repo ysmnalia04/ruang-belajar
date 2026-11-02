@@ -337,6 +337,7 @@ html.present body{zoom:1.12}
 /* ===== video portofolio ===== */
 .vid{margin-top:8px}
 .vid-frame{position:relative;width:100%;max-width:560px;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#000}
+.vid-frame.doc{aspect-ratio:3/4;max-width:640px;background:#fff;border:1px solid var(--rule)}
 .vid-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 
 /* ===== peta pemahaman ===== */
@@ -1075,14 +1076,14 @@ function videoEmbed(u){
   if((m=u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([\w-]+)/))) return "https://drive.google.com/file/d/"+m[1]+"/preview";
   return null;
 }
-function karyaItem(k){ const u=safeUrl(k.tautan), emb=videoEmbed(u);
+function karyaItem(k){ const u=safeUrl(k.tautan), emb=videoEmbed(u), isVid=!!emb&&(/youtu/i.test(u||"")||/video/i.test(k.jenis||""));
   return el("li",null,
     el("div",{class:"row",style:"gap:8px"},el("strong",{text:k.judul}),el("span",{class:"chip plain",text:k.jenis})),
-    el("p",{class:"muted",text:`${k.bab?"Bab "+k.bab+" · ":""}${tgl(k.waktu)}`}),
+    k.bab&&el("p",{class:"muted",text:`Bab ${k.bab}`}),
     k.anggotaNama&&el("p",{class:"muted",text:`👥 Karya kelompok${k.namaKelompok?" ("+k.namaKelompok+")":""}: ${k.anggotaNama.join(", ")}`}),
     k.deskripsi&&el("p",{text:k.deskripsi}),
     emb&&el("div",{class:"vid"},el("button",{class:"btn quiet small",type:"button",onclick:e=>{const box=e.currentTarget.parentNode;
-      box.replaceChildren(el("div",{class:"vid-frame"},el("iframe",{src:emb,title:"Video "+k.judul,allow:"autoplay; encrypted-media; picture-in-picture; fullscreen",allowfullscreen:true,loading:"lazy"})));}},"▶ Putar video")),
+      box.replaceChildren(el("div",{class:"vid-frame"+(isVid?"":" doc")},el("iframe",{src:emb,title:(isVid?"Video ":"Dokumen ")+k.judul,allow:"autoplay; encrypted-media; picture-in-picture; fullscreen",allowfullscreen:true,loading:"lazy"})));}},isVid?"▶ Putar video":"📄 Lihat dokumen")),
     u&&el("p",null,el("a",{href:u,target:"_blank",rel:"noopener noreferrer"},emb?"Buka di tab baru":"Buka karya"))); }
 function formKelompok(m,d){
   const teman=(d.teman||[]).slice().sort((a,b)=>a.nama.localeCompare(b.nama));
