@@ -345,6 +345,12 @@ html.present body{zoom:1.12}
 .kunci-ikon{font-size:2.2rem;line-height:1;margin-bottom:8px}
 .kunci-prog{background:var(--bg);max-width:none;margin-top:10px;height:10px}
 .kunci-prog i{background:var(--acc)}
+
+.kp-info{margin:0;font-weight:600;font-size:.92rem;min-height:0}
+.kp-info:empty{display:none}
+.kp-info.bad{color:#B3261E;background:#FDECEC;padding:10px 12px;border-radius:10px}
+.kp-info.ok{color:var(--muted)}
+.kp-sukses{background:var(--oksoft);color:var(--ok);border-radius:14px;padding:14px 16px;margin-bottom:14px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -434,7 +440,7 @@ async function muatKelas(){
 function simpanData(){ if(!S.guru) LS.set("rb-data-"+S.kode,S.data); }
 function logout(){
   clearInterval(S.tick); if(S.kode) LS.del("rb-data-"+S.kode); LS.del("rb-kode"); SES.del("rb-guru"); SES.del("rb-gkelas");
-  Object.assign(S,{kode:null,guru:null,guruKelas:null,data:null,err:null,kerja:{},nilai:null,guruData:null,guruErr:null,detail:{},detailLoading:{},mode:"siswa",kesan:null});
+  Object.assign(S,{kode:null,guru:null,guruKelas:null,data:null,err:null,kerja:{},nilai:null,guruData:null,guruErr:null,detail:{},detailLoading:{},mode:"siswa",kesan:null,kpTerkirim:null});
   history.replaceState(null,"","#"); render();
 }
 function gantiKelas(k){
@@ -812,18 +818,28 @@ function viewKesan(m){
     return;
   }
   m.append(el("p",{class:"muted",style:"margin:0 0 16px;max-width:62ch",text:`Ceritakan kesanmu selama belajar ${NAMA_MAPEL} dan sampaikan pesan atau saran untuk ${NAMA_GURU}. Hanya guru yang dapat membaca kiriman ini.`}));
-  const f=el("form",{class:"stack",onsubmit:async e=>{
-    e.preventDefault(); if(!f.reportValidity()) return;
-    const fd=new FormData(f), btn=f.querySelector("button[type=submit]"); btn.disabled=true; btn.textContent="Mengirim…";
-    try{ const j=await api("kesan",{kirim:1,suasana:Number(fd.get("suasana")),kesan:fd.get("kesan"),pesan:fd.get("pesan"),anonim:fd.get("anonim")?1:0});
-      hapusDraf(); S.kesan=j.list; toast("Terima kasih! Kesan dan pesanmu sudah terkirim."); render(); }
-    catch(err){ toast(err.message); btn.disabled=false; btn.textContent="Kirim"; }
+  const info=el("p",{class:"kp-info",role:"alert"});
+  const tampilInfo=(t,ok)=>{ info.textContent=t; info.className="kp-info "+(ok?"ok":"bad"); };
+  if(S.kpTerkirim) m.append(el("div",{class:"kp-sukses",role:"status"},el("b",{text:"✓ Terkirim"}),
+    el("span",{text:` pada pukul ${S.kpTerkirim.jam}${S.kpTerkirim.anon?" tanpa nama":""}. Terima kasih sudah berbagi! ${S.kpTerkirim.anon?"Kiriman tanpa nama memang tidak ditampilkan di riwayatmu.":""}`})));
+  const f=el("form",{class:"stack",novalidate:true,onsubmit:async e=>{
+    e.preventDefault();
+    const fd=new FormData(f);
+    if(!fd.get("suasana")){ tampilInfo("Pilih emoji suasana hatimu dulu."); f.querySelector(".kp-scale").scrollIntoView({behavior:"smooth",block:"center"}); return; }
+    if(!String(fd.get("kesan")||"").trim()){ tampilInfo("Kolom Kesan masih kosong. Tuliskan kesanmu dulu."); const t=f.elements.kesan; t.scrollIntoView({behavior:"smooth",block:"center"}); setTimeout(()=>t.focus(),300); return; }
+    const btn=f.querySelector("button[type=submit]"); btn.disabled=true; btn.textContent="Mengirim…"; tampilInfo("Mengirim…",true);
+    try{ const anon=!!fd.get("anonim");
+      const j=await api("kesan",{kirim:1,suasana:Number(fd.get("suasana")),kesan:fd.get("kesan"),pesan:fd.get("pesan"),anonim:anon?1:0});
+      hapusDraf(); S.kesan=j.list; S.kpTerkirim={jam:new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"}),anon};
+      render(); window.scrollTo(0,0); }
+    catch(err){ tampilInfo("Belum terkirim: "+err.message); btn.disabled=false; btn.textContent="Kirim"; }
   }},
-    el("fieldset",null,el("legend",{text:"Bagaimana perasaanmu belajar matematika akhir-akhir ini?"}),
-      el("div",{class:"scale kp-scale"},SUASANA.map((x,i)=>el("label",null,el("input",{type:"radio",name:"suasana",value:String(i+1),required:true}),el("span",null,el("b",{text:x[0]}),x[1]))))),
-    el("label",null,"Kesan",el("span",{class:"hint",text:"Apa yang paling kamu ingat atau sukai dari pembelajaran sejauh ini?"}),el("textarea",{name:"kesan",required:true,maxlength:"3000"})),
+    el("fieldset",null,el("legend",{text:"Bagaimana perasaanmu belajar matematika akhir-akhir ini? (wajib)"}),
+      el("div",{class:"scale kp-scale"},SUASANA.map((x,i)=>el("label",null,el("input",{type:"radio",name:"suasana",value:String(i+1)}),el("span",null,el("b",{text:x[0]}),x[1]))))),
+    el("label",null,"Kesan (wajib)",el("span",{class:"hint",text:"Apa yang paling kamu ingat atau sukai dari pembelajaran sejauh ini?"}),el("textarea",{name:"kesan",maxlength:"3000"})),
     el("label",null,"Pesan dan saran",el("span",{class:"hint",text:"Boleh dikosongkan. Apa yang menurutmu bisa dibuat lebih baik?"}),el("textarea",{name:"pesan",maxlength:"3000"})),
     el("label",{class:"kp-cek"},el("input",{type:"checkbox",name:"anonim",value:"1"}),"Kirim tanpa nama (guru tidak akan tahu siapa pengirimnya)"),
+    info,
     el("div",null,el("button",{class:"btn",type:"submit"},"Kirim")));
   const hapusDraf=pasangDraf(f,"kesan");
   m.append(el("div",{class:"card"},f));
