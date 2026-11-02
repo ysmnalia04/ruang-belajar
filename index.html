@@ -797,7 +797,7 @@ function kartuKesan(k,sembunyi,bisaUbah){
     bisaUbah&&el("div",{class:"row",style:"gap:8px;margin-top:12px"},
       el("button",{class:"btn quiet small",type:"button",onclick:()=>{S.kpEdit=k.id;render();}},"Ubah"),
       el("button",{class:"btn danger small",type:"button",onclick:async e=>{
-        if(!confirm("Hapus kiriman ini? Kiriman yang dihapus tidak bisa dikembalikan.")) return;
+        if(!confirm(S.guru?`Hapus kiriman ${k.anonim?"tanpa nama":"dari "+k.nama}? Kiriman yang dihapus tidak bisa dikembalikan.`:"Hapus kiriman ini? Kiriman yang dihapus tidak bisa dikembalikan.")) return;
         e.target.disabled=true; e.target.textContent="Menghapus…";
         try{ const j=await api("kesan",{hapus:1,id:k.id}); S.kesan=j.list; S.kpTerkirim=null; toast("Kiriman dihapus."); render(); }
         catch(err){ toast(err.message); e.target.disabled=false; e.target.textContent="Hapus"; }
@@ -814,7 +814,7 @@ function formUbahKesan(k){
       S.kesan=j.list; S.kpEdit=null; toast("Perubahan disimpan."); render(); }
     catch(err){ info.textContent="Belum tersimpan: "+err.message; info.className="kp-info bad"; btn.disabled=false; btn.textContent="Simpan"; }
   }},
-    el("h3",{style:"margin:0",text:"Ubah kiriman"}),
+    el("h3",{style:"margin:0",text:S.guru?`Ubah kiriman ${k.anonim?"tanpa nama":k.nama}`:"Ubah kiriman"}),
     el("div",{class:"scale kp-scale"},SUASANA.map((x,i)=>el("label",null,el("input",{type:"radio",name:"suasana",value:String(i+1),checked:k.suasana===i+1}),el("span",null,el("b",{text:x[0]}),x[1])))),
     el("label",null,"Kesan",el("textarea",{name:"kesan",maxlength:"3000"},k.kesan)),
     el("label",null,"Pesan dan saran",el("textarea",{name:"pesan",maxlength:"3000"},k.pesan||"")),
@@ -842,7 +842,7 @@ function viewKesan(m){
     m.append(el("div",{class:"row",style:"margin:18px 0 12px"},el("h2",{text:"Semua kiriman"}),el("span",{class:"spacer"}),
       el("button",{class:"btn quiet small",onclick:()=>{S.kpSembunyi=!S.kpSembunyi;render();}},S.kpSembunyi?"Tampilkan nama":"Sembunyikan nama"),
       el("button",{class:"btn quiet small",onclick:()=>{S.kesan=null;render();}},"Muat ulang")));
-    m.append(n?el("div",{class:"kp-grid"},L.map(k=>kartuKesan(k,S.kpSembunyi))):el("div",{class:"empty",text:"Belum ada kesan dan pesan dari siswa."}));
+    m.append(n?el("div",{class:"kp-grid"},L.map(k=>kartuKesan(k,S.kpSembunyi,true))):el("div",{class:"empty",text:"Belum ada kesan dan pesan dari siswa."}));
     return;
   }
   m.append(el("p",{class:"muted",style:"margin:0 0 16px;max-width:62ch",text:`Ceritakan kesanmu selama belajar ${NAMA_MAPEL} dan sampaikan pesan atau saran untuk ${NAMA_GURU}. Hanya guru yang dapat membaca kiriman ini.`}));
