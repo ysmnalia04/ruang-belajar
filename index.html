@@ -1099,12 +1099,21 @@ function galeri(m,items,linkSiswa){
       const ks=tugas[j].sort((a,b)=>String(a.namaKelompok).localeCompare(String(b.namaKelompok),"id",{numeric:true}));
       return folder("task","📁",j,`${ks.length} kelompok`,ks.map(k=>kartuKelompok(k,linkSiswa)),false,ks.some(k=>k.milikku)?"Kelompokmu":null);
     });
-    if(ind.length){
-      const g={}; ind.forEach(k=>{(g[k.nama]=g[k.nama]||[]).push(k);});
+    // tugas individu yang dikerjakan banyak siswa (judul sama) → folder sendiri
+    const perJudul={}; ind.forEach(k=>{(perJudul[k.judul]=perJudul[k.judul]||[]).push(k);});
+    const tugasInd=Object.keys(perJudul).filter(j=>perJudul[j].length>=3).sort((a,b)=>a.localeCompare(b,"id",{numeric:true}));
+    tugasInd.forEach(j=>{
+      const ks=perJudul[j].slice().sort((a,b)=>a.nama.localeCompare(b.nama));
+      const video=ks.every(k=>/video/i.test(k.jenis));
+      folders.push(folder("task",video?"🎬":"📝",j,`${ks.length} siswa`,ks.map(k=>kartuSiswa(k.nama,[k],linkSiswa)),false,ks.some(k=>k.milikku)?"Ada karyamu":null));
+    });
+    const sisa=ind.filter(k=>tugasInd.indexOf(k.judul)<0);
+    if(sisa.length){
+      const g={}; sisa.forEach(k=>{(g[k.nama]=g[k.nama]||[]).push(k);});
       const nama=Object.keys(g).sort((a,b)=>a.localeCompare(b));
-      folders.push(folder("task","🧑‍🎓","Karya individu",`${ind.length} karya`,nama.map(n=>kartuSiswa(n,g[n],linkSiswa)),false,ind.some(k=>k.milikku)?"Ada karyamu":null));
+      folders.push(folder("task","🧑‍🎓","Karya individu lainnya",`${sisa.length} karya`,nama.map(n=>kartuSiswa(n,g[n],linkSiswa)),false,sisa.some(k=>k.milikku)?"Ada karyamu":null));
     }
-    m.append(folder("bab","📚",babLabel(bab),`${Object.keys(tugas).length+(ind.length?1:0)} folder · ${isi.length} karya`,folders,bi===0||babs.length===1));
+    m.append(folder("bab","📚",babLabel(bab),`${folders.length} folder · ${isi.length} karya`,folders,bi===0||babs.length===1));
   });
 }
 function portoSiswa(pf){
